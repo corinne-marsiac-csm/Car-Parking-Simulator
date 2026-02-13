@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Car Parking Simulator First</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@400;700&display=swap');
+
+        body {
+            background-color: #f0f4f8;
+            font-family: 'Quicksand', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            padding: 10px;
+            touch-action: none;
+        }
+
+        /* --- TABLET FRAME --- */
+        .tablet-frame {
+            background-color: #40E0D0;
+            border-radius: 30px;
+            padding: 15px 15px 50px 15px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2), inset 0 -4px 8px rgba(0,0,0,0.1);
+            position: relative;
+            width: 100%;
+            max-width: 1100px;
+            height: 95vh;
+            max-height: 800px;
+            display: flex;
+            flex-direction: column;
+            border: 6px solid #36c2b5;
+        }
+
+        @media (min-width: 768px) {
+            .tablet-frame { border-radius: 45px; padding: 25px 25px 70px 25px; border-width: 10px; }
+        }
+
+        .power-button {
+            position: absolute;
+            top: -10px;
+            right: 50px;
+            width: 40px;
+            height: 12px;
+            background: #e74c3c;
+            border-radius: 5px 5px 0 0;
+            cursor: pointer;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+            z-index: 100;
+        }
+        .power-button:active { top: -5px; height: 7px; background: #c0392b; }
+
+        .tablet-screen {
+            background-color: #000;
+            border-radius: 15px;
+            flex-grow: 1;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+            transition: background-color 0.5s ease;
+        }
+
+        .tablet-screen.on { background-color: #2c3e50; }
+
+        .home-button {
+            position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+            width: 35px; height: 35px; background-color: white; border-radius: 50%;
+            cursor: pointer; border: 2px solid #36c2b5; z-index: 50;
+        }
+
+        /* --- BOOT ANIMATION --- */
+        #boot-screen {
+            position: absolute; inset: 0; background: #000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 200; color: white;
+        }
+        .boot-logo {
+            font-family: 'Fredoka One'; font-size: 2.5rem; color: #40E0D0;
+            animation: pulse 2s infinite; margin-bottom: 20px;
+        }
+        .progress-bar-bg { width: 200px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
+        .progress-bar-fill { width: 0%; height: 100%; background: #40E0D0; transition: width 0.1s linear; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.95); }
+        }
+
+        /* --- UI COMPONENTS --- */
+        .menu-btn {
+            background: #ff6b6b; color: white; padding: 12px 24px; border-radius: 20px;
+            font-family: 'Fredoka One', cursive; font-size: 1.2rem; box-shadow: 0 5px 0 #ee5253;
+            cursor: pointer; margin: 8px; text-align: center; transition: all 0.1s;
+            user-select: none;
+        }
+        .menu-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #ee5253; }
+
+        .touch-controls {
+            position: absolute; bottom: 20px; left: 0; width: 100%;
+            display: flex; justify-content: space-between; padding: 0 25px;
+            pointer-events: none; z-index: 40;
+        }
+        .touch-group { display: flex; gap: 15px; pointer-events: auto; }
+        .touch-btn {
+            width: 65px; height: 65px; background: rgba(255,255,255,0.2);
+            border-radius: 20px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.8rem; color: white; border: 2px solid rgba(255,255,255,0.4);
+            user-select: none; -webkit-tap-highlight-color: transparent;
+            backdrop-filter: blur(4px);
+        }
+        .touch-btn:active { background: rgba(255,255,255,0.4); transform: scale(0.9); }
+        .brake-btn { width: 90px; background: rgba(231, 76, 60, 0.4); border-color: rgba(231, 76, 60, 0.6); }
+
+        .sound-toggle {
+            position: absolute; top: 15px; right: 15px; z-index: 100;
+            background: rgba(255,255,255,0.9); width: 45px; height: 45px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; border: 2px solid #40E0D0;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; }
+        .overlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.85);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: white; z-index: 10; text-align: center; padding: 25px;
+        }
+        
+        .input-name {
+            padding: 15px; border-radius: 20px; border: 5px solid #40E0D0;
+            font-size: 1.4rem; text-align: center; margin-bottom: 25px;
+            color: #2c3e50; font-weight: bold; width: 85%; max-width: 320px; outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .lvl-card {
+            background: white; border-radius: 20px; padding: 15px; cursor: pointer;
+            border: 4px solid #e2e8f0; text-align: center; font-weight: 700; color: #4a5568;
+        }
+        .custom-card {
+            background: #f7fafc; border: 4px solid #edf2f7; border-radius: 20px;
+            padding: 15px; cursor: pointer; transition: all 0.2s;
+            text-align: center;
+        }
+        .custom-card.active { border-color: #ff6b6b; background: #fff5f5; transform: scale(1.05); }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div class="tablet-frame">
+        <div class="power-button" onclick="togglePower()"></div>
+        <div class="sound-toggle" id="sound-toggle" onclick="toggleSound()">🔊</div>
+        
+        <div class="tablet-screen" id="tablet-screen">
+            
+            <!-- ÉCRAN DE DÉMARRAGE -->
+            <div id="boot-screen" class="hidden">
+                <div class="boot-logo">CarSimulator</div>
+                <div class="progress-bar-bg">
+                    <div id="boot-progress" class="progress-bar-fill"></div>
+                </div>
+                <div class="text-xs mt-2 text-gray-500 tracking-widest">CHARGEMENT...</div>
+            </div>
+
+            <!-- PAGE D'ACCUEIL -->
+            <div id="splash-screen" class="hidden flex-col items-center justify-center h-full bg-blue-100 p-4">
+                <div class="mb-8 flex gap-6 animate-bounce">
+                    <span class="text-5xl md:text-7xl">🏎️</span>
+                    <span class="text-5xl md:text-7xl">🏍️</span>
+                    <span class="text-5xl md:text-7xl">🚐</span>
+                </div>
+                <h1 class="text-4xl md:text-7xl font-bold text-blue-600 mb-2 text-center" style="font-family: 'Fredoka One';">Car Parking</h1>
+                <h2 class="text-2xl md:text-5xl font-bold text-emerald-500 mb-10 text-center" style="font-family: 'Fredoka One';">Simulator First</h2>
+                <div class="flex flex-col items-center w-full">
+                    <input type="text" id="user-name-input" class="input-name" placeholder="Ton prénom...">
+                    <p id="name-warning" class="text-red-500 font-bold mb-4 hidden">Oups ! Choisis un autre prénom.</p>
+                    <button class="menu-btn bg-emerald-500 shadow-emerald-700 w-full max-w-[240px]" onclick="saveNameAndStart()">C'est parti ! 🏁</button>
+                </div>
+            </div>
+
+            <!-- MENU PRINCIPAL -->
+            <div id="main-menu" class="hidden flex flex-col items-center justify-center h-full bg-blue-50 p-4">
+                <h1 class="text-3xl md:text-5xl font-bold text-blue-600 mb-4 text-center" style="font-family: 'Fredoka One';">Salut <span id="display-user-name" class="text-orange-500"></span> !</h1>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl">
+                    <div class="menu-btn bg-yellow-400 border-yellow-600 shadow-yellow-700 text-gray-800" onclick="showCustomization()">🛠️ Mon Garage</div>
+                    <div class="menu-btn bg-orange-400 border-orange-600 shadow-orange-700" onclick="startGame('racing')">🏎️ Course Folle</div>
+                    <div class="menu-btn bg-emerald-500 border-emerald-700 shadow-emerald-800" onclick="showParkingLevels()">🅿️ Expert Parking</div>
+                </div>
+            </div>
+
+            <!-- GARAGE -->
+            <div id="car-customization" class="hidden flex flex-col items-center justify-center h-full bg-blue-100 p-4 overflow-y-auto">
+                <h2 class="text-3xl md:text-5xl font-bold text-blue-600 mb-8" style="font-family: 'Fredoka One';">Mon Garage 🛠️</h2>
+                <div class="flex flex-col gap-6 w-full max-w-2xl bg-white p-8 rounded-3xl shadow-xl">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="custom-card active" id="type-sport" onclick="setUserType('sport')"><span class="text-4xl">🏎️</span><p class="text-xs mt-1 font-bold">Sportive</p></div>
+                        <div class="custom-card" id="type-sedan" onclick="setUserType('sedan')"><span class="text-4xl">🚗</span><p class="text-xs mt-1 font-bold">Ville</p></div>
+                        <div class="custom-card" id="type-van" onclick="setUserType('van')"><span class="text-4xl">🚐</span><p class="text-xs mt-1 font-bold">Le Van</p></div>
+                        <div class="custom-card" id="type-moto" onclick="setUserType('moto')"><span class="text-4xl">🏍️</span><p class="text-xs mt-1 font-bold">Moto</p></div>
+                    </div>
+                    <div class="flex flex-wrap justify-center gap-4">
+                        <div class="w-12 h-12 rounded-full border-4 border-white shadow-md cursor-pointer" style="background: #e74c3c" onclick="setUserColor('#e74c3c')"></div>
+                        <div class="w-12 h-12 rounded-full border-4 border-white shadow-md cursor-pointer" style="background: #3498db" onclick="setUserColor('#3498db')"></div>
+                        <div class="w-12 h-12 rounded-full border-4 border-white shadow-md cursor-pointer" style="background: #2ecc71" onclick="setUserColor('#2ecc71')"></div>
+                        <div class="w-12 h-12 rounded-full border-4 border-white shadow-md cursor-pointer" style="background: #f1c40f" onclick="setUserColor('#f1c40f')"></div>
+                    </div>
+                    <button class="menu-btn bg-emerald-500 mt-4" onclick="showMenu()">Valider ✅</button>
+                </div>
+            </div>
+
+            <!-- SÉLECTION PARKING -->
+            <div id="parking-selection" class="hidden flex flex-col items-center justify-center h-full bg-blue-50 p-4">
+                <h2 class="text-3xl font-bold text-blue-600 mb-8" style="font-family: 'Fredoka One';">Où vas-tu te garer ?</h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-5">
+                    <div class="lvl-card" onclick="startParkingAt(0)">🕳️ Niv -1</div>
+                    <div class="lvl-card" onclick="startParkingAt(1)">🌳 Extérieur</div>
+                    <div class="lvl-card" onclick="startParkingAt(2)">🧱 Étage 1</div>
+                    <div class="lvl-card" onclick="startParkingAt(3)">🚗 Étage 2</div>
+                    <div class="lvl-card" onclick="startParkingAt(4)">🌇 Toit</div>
+                    <div class="lvl-card bg-gray-200" onclick="showMenu()">🏠 Retour</div>
+                </div>
+            </div>
+
+            <!-- JEU COURSE -->
+            <div id="game-racing" class="hidden relative h-full">
+                <div class="absolute top-4 left-4 text-xl md:text-3xl font-bold text-white drop-shadow-md z-10">Score: <span id="racing-score">0</span></div>
+                <canvas id="racingCanvas"></canvas>
+                <div class="touch-controls">
+                    <div class="touch-group">
+                        <div class="touch-btn" ontouchstart="keys['ArrowLeft']=true" ontouchend="keys['ArrowLeft']=false">⬅️</div>
+                        <div class="touch-btn" ontouchstart="keys['ArrowRight']=true" ontouchend="keys['ArrowRight']=false">➡️</div>
+                    </div>
+                </div>
+                <div id="racing-over" class="overlay hidden">
+                    <h2 class="text-4xl mb-6 font-bold">Boum <span class="user-name-text"></span> ! 💥</h2>
+                    <button class="menu-btn" onclick="resetRacing()">Recommencer 🔄</button>
+                    <button class="menu-btn bg-gray-500" onclick="showMenu()">Menu 🏠</button>
+                </div>
+            </div>
+
+            <!-- JEU PARKING -->
+            <div id="game-parking" class="hidden relative h-full">
+                <div id="parking-hud" class="absolute top-4 left-0 w-full flex justify-between px-6 text-lg md:text-2xl font-bold text-white drop-shadow-md z-10 pointer-events-none">
+                    <div class="flex flex-col"><div>Niv. <span id="parking-level">1</span></div><div id="level-name" class="uppercase text-xs tracking-widest text-emerald-400">SOUTERRAIN</div></div>
+                    <button class="exit-btn pointer-events-auto bg-red-500 text-white px-4 py-2 rounded-2xl text-xs font-bold" onclick="showParkingLevels()">QUITTER 🚪</button>
+                </div>
+                <canvas id="parkingCanvas"></canvas>
+                <div class="touch-controls">
+                    <div class="touch-group">
+                        <div class="touch-btn" ontouchstart="keys['ArrowLeft']=true" ontouchend="keys['ArrowLeft']=false">⬅️</div>
+                        <div class="touch-btn" ontouchstart="keys['ArrowRight']=true" ontouchend="keys['ArrowRight']=false">➡️</div>
+                    </div>
+                    <div class="touch-group">
+                        <div class="touch-btn" ontouchstart="keys['ArrowUp']=true" ontouchend="keys['ArrowUp']=false">⬆️</div>
+                        <div class="touch-btn brake-btn" ontouchstart="keys['Space']=true" ontouchend="keys['Space']=false">🛑</div>
+                        <div class="touch-btn" ontouchstart="keys['ArrowDown']=true" ontouchend="keys['ArrowDown']=false">⬇️</div>
+                    </div>
+                </div>
+                <div id="parking-msg" class="overlay hidden">
+                    <h2 class="text-4xl mb-6 font-bold" id="parking-status-text">Bravo !</h2>
+                    <button id="parking-next-btn" class="menu-btn">Suivant 🏆</button>
+                    <button class="menu-btn bg-gray-500" onclick="showMenu()">Menu 🏠</button>
+                </div>
+            </div>
+
+        </div>
+        <div class="home-button" onclick="showMenu()"></div>
+    </div>
+
+    <script>
+        const screen = document.getElementById('tablet-screen');
+        const racingCanvas = document.getElementById('racingCanvas');
+        const parkingCanvas = document.getElementById('parkingCanvas');
+        const ctxR = racingCanvas.getContext('2d');
+        const ctxP = parkingCanvas.getContext('2d');
+
+        const V_WIDTH = 800; const V_HEIGHT = 600;
+        let scale = 1; let gameLoop = null; let keys = {};
+        let isPowerOn = false;
+
+        // Configuration utilisateur
+        let userConfig = { name: "Petit Chauffeur", color: '#3498db', type: 'sport' };
+
+        // Configuration des sons moteur selon le véhicule
+        const engineConfigs = {
+            'sport': { baseFreq: 120, waveType: 'sawtooth', volume: 0.015, accelFactor: 18 },
+            'sedan': { baseFreq: 95, waveType: 'triangle', volume: 0.03, accelFactor: 12 },
+            'van': { baseFreq: 65, waveType: 'square', volume: 0.008, accelFactor: 8 },
+            'moto': { baseFreq: 145, waveType: 'sawtooth', volume: 0.015, accelFactor: 24 }
+        };
+
+        // Audio Context
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSound(freq, type, duration, vol = 0.1) {
+            if (!soundEnabled || !audioCtx || !isPowerOn) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playCrashSound() {
+            if (!soundEnabled || !audioCtx || !isPowerOn) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('sound-toggle').innerText = soundEnabled ? '🔊' : '🔇';
+            initAudio();
+        }
+
+        function togglePower() {
+            isPowerOn = !isPowerOn;
+            if (isPowerOn) {
+                screen.classList.add('on');
+                startBootSequence();
+            } else {
+                screen.classList.remove('on');
+                cancelAnimationFrame(gameLoop);
+                hideAllScreens();
+                if(audioCtx) audioCtx.suspend();
+            }
+        }
+
+        function hideAllScreens() {
+            const screens = ['boot-screen', 'splash-screen', 'main-menu', 'car-customization', 'parking-selection', 'game-racing', 'game-parking'];
+            screens.forEach(s => {
+                const el = document.getElementById(s);
+                if(el) {
+                    el.classList.add('hidden');
+                    el.style.display = 'none';
+                }
+            });
+        }
+
+        function startBootSequence() {
+            initAudio();
+            hideAllScreens();
+            const boot = document.getElementById('boot-screen');
+            boot.classList.remove('hidden');
+            boot.style.display = 'flex';
+            
+            let progress = 0;
+            const fill = document.getElementById('boot-progress');
+            playSound(440, 'triangle', 0.5, 0.05);
+            
+            const interval = setInterval(() => {
+                progress += 2.5;
+                fill.style.width = progress + '%';
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        hideAllScreens();
+                        const splash = document.getElementById('splash-screen');
+                        splash.classList.remove('hidden');
+                        splash.style.display = 'flex';
+                    }, 500);
+                }
+            }, 50);
+        }
+
+        // --- FILTRE DE SÉCURITÉ ---
+        function isNameSafe(name) {
+            const forbidden = ["merde", "con", "salope", "pute", "encule", "nique", "connard", "salaud", "idiot", "debile", "abruti", "cul", "bite", "couille", "sexe", "zizi", "pipi", "caca", "nichon", "clito", "fesse", "tuer", "mort", "sang", "tue", "violer", "viol", "crime", "guerre", "hitler", "nazi", "raciste", "negre", "bougnoul", "sale", "degoutant", "diable", "satan", "mal", "demon", "enfer", "mechant", "vilain", "haine", "souffrir", "douleur", "lucifer", "belzebuth"];
+            const lower = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            return !forbidden.some(word => lower.includes(word));
+        }
+
+        function saveNameAndStart() {
+            const inputEl = document.getElementById('user-name-input');
+            const warningEl = document.getElementById('name-warning');
+            const name = inputEl.value.trim();
+            if (!name) return;
+            if (!isNameSafe(name)) {
+                inputEl.value = ""; inputEl.style.borderColor = "#e74c3c"; warningEl.classList.remove('hidden'); playSound(100, 'sawtooth', 0.3, 0.1);
+                setTimeout(() => { inputEl.style.borderColor = "#40E0D0"; }, 2000);
+                return;
+            }
+            userConfig.name = name; warningEl.classList.add('hidden'); playSound(523, 'sine', 0.2); showMenu();
+        }
+
+        function setUserType(t) { 
+            userConfig.type = t; 
+            document.querySelectorAll('.custom-card').forEach(el => el.classList.remove('active')); 
+            document.getElementById('type-'+t).classList.add('active'); 
+            playSound(440, 'sine', 0.1); 
+        }
+        function setUserColor(c) { userConfig.color = c; playSound(550, 'sine', 0.1); }
+
+        function resize() {
+            const w = screen.clientWidth;
+            const h = screen.clientHeight;
+            racingCanvas.width = w; racingCanvas.height = h;
+            parkingCanvas.width = w; parkingCanvas.height = h;
+            scale = Math.min(w / V_WIDTH, h / V_HEIGHT);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        window.addEventListener('keydown', e => { keys[e.code] = true; });
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        function showMenu() {
+            if (!isPowerOn) return;
+            cancelAnimationFrame(gameLoop);
+            hideAllScreens();
+            const menu = document.getElementById('main-menu');
+            menu.classList.remove('hidden');
+            menu.style.display = 'flex';
+            document.getElementById('display-user-name').innerText = userConfig.name;
+            document.querySelectorAll('.user-name-text').forEach(el => el.innerText = userConfig.name);
+        }
+
+        function showCustomization() { hideAllScreens(); const el = document.getElementById('car-customization'); el.classList.remove('hidden'); el.style.display = 'flex'; }
+        function showParkingLevels() { cancelAnimationFrame(gameLoop); hideAllScreens(); const el = document.getElementById('parking-selection'); el.classList.remove('hidden'); el.style.display = 'flex'; }
+        function startParkingAt(i) { hideAllScreens(); const el = document.getElementById('game-parking'); el.classList.remove('hidden'); el.style.display = 'block'; initParking(i); }
+        function startGame(type) { hideAllScreens(); if (type === 'racing') { const el = document.getElementById('game-racing'); el.classList.remove('hidden'); el.style.display = 'block'; initRacing(); } }
+
+        // --- DRAWING CAR/MOTO ---
+        function drawImprovedCar(ctx, x, y, color, type, isBraking, w, h) {
+            ctx.save();
+            ctx.translate(x, y);
+            
+            // Ombre
+            ctx.fillStyle = "rgba(0,0,0,0.25)";
+            if (type === 'moto') {
+                ctx.beginPath(); ctx.roundRect(-h/2+4, -5, h, 10, 5); ctx.fill();
+            } else {
+                ctx.beginPath(); ctx.roundRect(-h/2+4, -w/2+4, h, w, 8); ctx.fill();
+            }
+
+            // Corps
+            ctx.fillStyle = color;
+            if (type === 'moto') {
+                // Corps de la moto
+                ctx.beginPath(); ctx.roundRect(-h/2, -6, h, 12, 6); ctx.fill();
+                // Roues
+                ctx.fillStyle = '#1e272e';
+                ctx.beginPath(); ctx.arc(-h/2 + 8, 0, 8, 0, Math.PI*2); ctx.fill(); // Arrière
+                ctx.beginPath(); ctx.arc(h/2 - 8, 0, 7, 0, Math.PI*2); ctx.fill();  // Avant
+                // Guidon
+                ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(h/2 - 15, -12); ctx.lineTo(h/2 - 15, 12); ctx.stroke();
+                // Selle
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.beginPath(); ctx.roundRect(-5, -4, h/2, 8, 2); ctx.fill();
+
+                // Rétroviseurs Moto
+                ctx.fillStyle = '#2c3e50';
+                ctx.beginPath(); ctx.ellipse(h/2 - 15, -14, 4, 2, 0, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(h/2 - 15, 14, 4, 2, 0, 0, Math.PI*2); ctx.fill();
+
+            } else {
+                // Voitures / Van
+                if (type === 'van') { 
+                    ctx.beginPath(); ctx.roundRect(-h/2, -w/2, h, w, 6); ctx.fill(); 
+                    ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(-h/4, -w/2+4, h/2, w-8);
+                } else if (type === 'sedan') { 
+                    ctx.beginPath(); ctx.roundRect(-h/2, -w/2, h, w, 10); ctx.fill(); 
+                    ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(-h/4, -w/2+4, h/2, w-8);
+                } else { 
+                    ctx.beginPath(); ctx.roundRect(-h/2, -w/2, h, w, 15); ctx.fill(); 
+                    ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(-h/4, -w/2+4, h/2, w-8);
+                }
+
+                // Rétroviseurs Voitures
+                ctx.fillStyle = color;
+                const mirW = type === 'van' ? 9 : 6;
+                const mirH = type === 'van' ? 5 : 3;
+                const mirPos = h/4; // Position vers l'avant
+                // Gauche
+                ctx.beginPath(); ctx.roundRect(mirPos, -w/2 - mirH + 1, mirW, mirH, 2); ctx.fill();
+                // Droite
+                ctx.beginPath(); ctx.roundRect(mirPos, w/2 - 1, mirW, mirH, 2); ctx.fill();
+            }
+
+            // Phares
+            if (type === 'moto') {
+                ctx.fillStyle = '#fff9c4'; ctx.beginPath(); ctx.arc(h/2 - 2, 0, 4, 0, Math.PI*2); ctx.fill();
+                if (isBraking) {
+                    ctx.fillStyle = '#ff3f34'; ctx.shadowBlur = 15; ctx.shadowColor = 'red';
+                    ctx.beginPath(); ctx.arc(-h/2 + 2, 0, 5, 0, Math.PI*2); ctx.fill();
+                } else {
+                    ctx.fillStyle = '#c0392b'; ctx.beginPath(); ctx.arc(-h/2 + 2, 0, 4, 0, Math.PI*2); ctx.fill();
+                }
+            } else {
+                ctx.fillStyle = '#fff9c4'; ctx.fillRect(h/2-6, -w/2+4, 4, 6); ctx.fillRect(h/2-6, w/2-10, 4, 6);
+                if (isBraking) {
+                    ctx.fillStyle = '#ff3f34'; ctx.shadowBlur = 15; ctx.shadowColor = 'red';
+                    ctx.fillRect(-h/2, -w/2+4, 5, 8); ctx.fillRect(-h/2, w/2-12, 5, 8);
+                } else {
+                    ctx.fillStyle = '#c0392b'; ctx.fillRect(-h/2, -w/2+4, 5, 8); ctx.fillRect(-h/2, w/2-12, 5, 8);
+                }
+            }
+            ctx.restore();
+        }
+
+        // --- DÉCORS ET SIGNALISATION ---
+        function drawTree(ctx, x, y) {
+            ctx.fillStyle = '#6d4c41'; ctx.fillRect(x-4, y, 8, 15); // Tronc
+            ctx.fillStyle = '#2e7d32'; ctx.beginPath(); ctx.arc(x, y-10, 15, 0, Math.PI*2); ctx.fill(); // Feuillage principal
+            ctx.beginPath(); ctx.arc(x-10, y-5, 12, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x+10, y-5, 12, 0, Math.PI*2); ctx.fill();
+        }
+
+        function drawSign(ctx, x, y, symbol) {
+            ctx.strokeStyle = '#95a5a6'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y-30); ctx.stroke(); // Poteau
+            
+            ctx.fillStyle = '#e74c3c'; ctx.beginPath();
+            if(symbol === '!') {
+                // Triangle Danger
+                ctx.moveTo(x, y-45); ctx.lineTo(x-12, y-25); ctx.lineTo(x+12, y-25); ctx.closePath();
+            } else {
+                // Rond Stop / Interdit
+                ctx.arc(x, y-35, 12, 0, Math.PI*2);
+            }
+            ctx.fill();
+            
+            ctx.fillStyle = 'white'; ctx.textAlign = 'center'; ctx.font = 'bold 12px Arial';
+            ctx.fillText(symbol, x, y-31);
+        }
+
+        // --- RACING ---
+        let racingState = {};
+        function initRacing() {
+            racingState = { score: 0, playerX: V_WIDTH/2-25, playerY: V_HEIGHT-130, carW: 46, carH: 85, enemies: [], roadOffset: 0, speed: 7.5, over: false };
+            document.getElementById('racing-over').classList.add('hidden');
+            loopRacing();
+        }
+        function resetRacing() { cancelAnimationFrame(gameLoop); initRacing(); }
+        function loopRacing() {
+            if (racingState.over || !isPowerOn) return;
+            racingState.roadOffset += racingState.speed; racingState.score += 0.1;
+            document.getElementById('racing-score').innerText = Math.floor(racingState.score);
+            if (keys['ArrowLeft'] && racingState.playerX > 120) racingState.playerX -= 8;
+            if (keys['ArrowRight'] && racingState.playerX < V_WIDTH - 170) racingState.playerX += 8;
+            
+            if (Math.random() < 0.2) {
+                const conf = engineConfigs[userConfig.type];
+                playSound(conf.baseFreq + 50, conf.waveType, 0.05, conf.volume);
+            }
+
+            if (Math.random() < 0.03) {
+                const enemyTypes = ['sport', 'sedan', 'van'];
+                const enemyColors = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22', '#34495e'];
+                const type = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+                const color = enemyColors[Math.floor(Math.random() * enemyColors.length)];
+                racingState.enemies.push({ x: 140 + Math.random() * (V_WIDTH-320), y: -100, color: color, type: type });
+            }
+
+            racingState.enemies.forEach((en, i) => {
+                en.y += racingState.speed + 2;
+                const collisionW = (en.type === 'van' ? 50 : (en.type === 'moto' ? 30 : 40));
+                if (Math.abs(en.x - racingState.playerX) < collisionW && Math.abs(en.y - racingState.playerY) < 70) {
+                    racingState.over = true; playCrashSound(); document.getElementById('racing-over').classList.remove('hidden');
+                }
+                if (en.y > V_HEIGHT) racingState.enemies.splice(i, 1);
+            });
+
+            ctxR.clearRect(0,0,racingCanvas.width, racingCanvas.height);
+            ctxR.save(); ctxR.scale(scale, scale);
+            ctxR.fillStyle = '#34495e'; ctxR.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+            ctxR.fillStyle = '#2ecc71'; ctxR.fillRect(0,0,100,V_HEIGHT); ctxR.fillRect(V_WIDTH-100,0,100,V_HEIGHT);
+            ctxR.fillStyle = 'white'; ctxR.setLineDash([40, 40]); ctxR.beginPath(); ctxR.moveTo(V_WIDTH/2, -(racingState.roadOffset%80)); ctxR.lineTo(V_WIDTH/2, V_HEIGHT+80); ctxR.stroke();
+            ctxR.save(); ctxR.rotate(-Math.PI/2);
+            drawImprovedCar(ctxR, -(racingState.playerY+42), racingState.playerX+23, userConfig.color, userConfig.type, false, (userConfig.type === 'moto' ? 25 : 46), 85);
+            racingState.enemies.forEach(en => {
+                const drawW = (en.type === 'van' ? 52 : 46);
+                drawImprovedCar(ctxR, -(en.y+42), en.x+23, en.color, en.type, false, drawW, 85);
+            });
+            ctxR.restore(); ctxR.restore();
+            gameLoop = requestAnimationFrame(loopRacing);
+        }
+
+        // --- PARKING ---
+        let parkingState = {};
+        const parkingLevels = [
+            { 
+                name: "Souterrain -1 🕳️", bg: "#2c3e50", 
+                start: {x: 100, y: 100, a: 0}, 
+                walls: [{x: 0, y:200, w: 600, h: 35}, {x: 200, y: 410, w: 600, h: 35}], 
+                spots: [{x: 650, y: 450, w: 90, h: 120, target: true}],
+                markings: [{x: 100, y: 70, type: 'text', val: 'ENTRÉE'}, {x: 700, y: 420, type: 'text', val: 'SORTIE'}, {x: 300, y: 150, type: 'arrow', a: 0}],
+                decorations: [{x: 200, y: 190, type: 'sign', val: 'P'}, {x: 580, y: 400, type: 'sign', val: '!'}]
+            },
+            { 
+                name: "Extérieur (Niv 0) 🌳", bg: "#7f8c8d", 
+                start: {x: 750, y: 520, a: -Math.PI/2}, 
+                walls: [{x: 100, y: 0, w: 700, h: 110}], 
+                islands: [{x: 250, y: 160, w: 400, h: 70, color: '#27ae60'}, {x: 240, y: 360, w: 500, h: 110, color: '#2ecc71'}], 
+                spots: [{x: 35, y: 450, w: 100, h: 90, target: true}],
+                markings: [{x: 750, y: 560, type: 'text', val: 'ENTRÉE'}, {x: 80, y: 420, type: 'text', val: 'SORTIE'}],
+                decorations: [{x: 300, y: 200, type: 'tree'}, {x: 450, y: 210, type: 'tree'}, {x: 600, y: 190, type: 'tree'}, {x: 280, y: 410, type: 'tree'}, {x: 500, y: 430, type: 'tree'}, {x: 650, y: 420, type: 'tree'}]
+            },
+            { 
+                name: "Slalom Étage 🧱", bg: "#3d3d3d", 
+                start: {x: 80, y: 500, a: -Math.PI/2}, 
+                walls: [{x: 220, y: 160, w: 40, h: 440}, {x: 520, y: 0, w: 40, h: 440}], 
+                spots: [{x: 680, y: 100, w: 100, h: 130, target: true}],
+                markings: [{x: 80, y: 560, type: 'text', val: 'ENTRÉE'}, {x: 730, y: 70, type: 'text', val: 'SORTIE'}, {x: 380, y: 300, type: 'arrow', a: -Math.PI/2}],
+                decorations: [{x: 180, y: 200, type: 'sign', val: '!'}, {x: 480, y: 400, type: 'sign', val: 'STOP'}]
+            },
+            { 
+                name: "Double Rangée 🚗", bg: "#2c3e50", 
+                start: {x: 70, y: 70, a: 0}, 
+                walls: [{x: 0, y: 310, w: 800, h: 30}], 
+                spots: [{x: 650, y: 440, w: 100, h: 140, target: true}],
+                markings: [{x: 70, y: 40, type: 'text', val: 'ENTRÉE'}, {x: 700, y: 410, type: 'text', val: 'SORTIE'}],
+                decorations: [{x: 400, y: 300, type: 'sign', val: 'P'}]
+            },
+            { 
+                name: "Toit Final 🌇", bg: "#ced6e0", 
+                start: {x: 400, y: 530, a: -Math.PI/2}, 
+                walls: [{x: 260, y: 220, w: 280, h: 200}], 
+                spots: [{x: 375, y: 80, w: 60, h: 100, target: true}],
+                markings: [{x: 400, y: 580, type: 'text', val: 'ENTRÉE'}, {x: 405, y: 50, type: 'text', val: 'SORTIE'}],
+                decorations: [{x: 250, y: 200, type: 'sign', val: '!'}, {x: 550, y: 200, type: 'sign', val: '!'}]
+            }
+        ];
+
+        function initParking(l) {
+            cancelAnimationFrame(gameLoop);
+            parkingState = { levelIdx: l, x: 0, y: 0, angle: 0, speed: 0, accel: 0.15, friction: 0.96, brakePower: 0.85, steer: 0.058, w: (userConfig.type === 'moto' ? 20 : 34), h: 65, over: false, won: false, braking: false };
+            loadLevel(); loopParking();
+        }
+        function loadLevel() {
+            const lvl = parkingLevels[parkingState.levelIdx];
+            document.getElementById('parking-level').innerText = parkingState.levelIdx + 1;
+            document.getElementById('level-name').innerText = lvl.name;
+            parkingState.x = lvl.start.x; parkingState.y = lvl.start.y; parkingState.angle = lvl.start.a; parkingState.speed = 0; parkingState.over = false; parkingState.won = false;
+            document.getElementById('parking-msg').classList.add('hidden');
+        }
+        function nextParkingLevel() { parkingState.levelIdx++; if(parkingState.levelIdx >= parkingLevels.length) { showParkingLevels(); return; } loadLevel(); }
+        
+        function loopParking() {
+            if (document.getElementById('game-parking').classList.contains('hidden') || !isPowerOn) return;
+            const lvl = parkingLevels[parkingState.levelIdx];
+            if (!parkingState.won && !parkingState.over) {
+                parkingState.braking = keys['Space'];
+                const conf = engineConfigs[userConfig.type];
+                if (keys['ArrowUp']) { 
+                    parkingState.speed += parkingState.accel; 
+                    playSound(conf.baseFreq + Math.abs(parkingState.speed) * conf.accelFactor, conf.waveType, 0.05, conf.volume); 
+                }
+                if (keys['ArrowDown']) {
+                    parkingState.speed -= parkingState.accel * 0.7;
+                    playSound(conf.baseFreq - 10, conf.waveType, 0.05, conf.volume * 0.5);
+                }
+                if (Math.abs(parkingState.speed) > 0.05) { const dir = parkingState.speed > 0 ? 1 : -1; if (keys['ArrowLeft']) parkingState.angle -= parkingState.steer * dir; if (keys['ArrowRight']) parkingState.angle += parkingState.steer * dir; }
+                parkingState.speed *= parkingState.friction; parkingState.x += Math.cos(parkingState.angle) * parkingState.speed; parkingState.y += Math.sin(parkingState.angle) * parkingState.speed;
+                let col = (parkingState.x < 0 || parkingState.x > V_WIDTH || parkingState.y < 0 || parkingState.y > V_HEIGHT);
+                lvl.walls.forEach(w => { if(parkingState.x > w.x && parkingState.x < w.x+w.w && parkingState.y > w.y && parkingState.y < w.y+w.h) col = true; });
+                if(lvl.islands) lvl.islands.forEach(isl => { if(parkingState.x > isl.x && parkingState.x < isl.x+isl.w && parkingState.y > isl.y && parkingState.y < isl.y+isl.h) col = true; });
+                if (col) { parkingState.over = true; playCrashSound(); showParkingMessage("Aie " + userConfig.name + " ! 💥", "Recommencer"); }
+                lvl.spots.filter(s => s.target).forEach(t => { const d = Math.sqrt((parkingState.x-(t.x+t.w/2))**2 + (parkingState.y-(t.y+t.h/2))**2); if (d < 45 && Math.abs(parkingState.speed) < 0.15) { parkingState.won = true; playSound(880, 'sine', 0.5, 0.1); showParkingMessage("Bravo " + userConfig.name + " ! 🌟", "Niveau Suivant"); } });
+            }
+            ctxP.clearRect(0,0,parkingCanvas.width, parkingCanvas.height); ctxP.save(); ctxP.scale(scale, scale);
+            ctxP.fillStyle = lvl.bg; ctxP.fillRect(0,0,V_WIDTH, V_HEIGHT);
+            
+            // Marquages au sol
+            if(lvl.markings) lvl.markings.forEach(m => {
+                ctxP.fillStyle = "rgba(255,255,255,0.3)";
+                if(m.type === 'text') {
+                    ctxP.font = "bold 18px Quicksand"; ctxP.textAlign = "center";
+                    ctxP.fillText(m.val, m.x, m.y);
+                } else if(m.type === 'arrow') {
+                    ctxP.save(); ctxP.translate(m.x, m.y); ctxP.rotate(m.a);
+                    ctxP.beginPath(); ctxP.moveTo(15, 0); ctxP.lineTo(-5, -10); ctxP.lineTo(-5, 10); ctxP.closePath(); ctxP.fill();
+                    ctxP.fillRect(-25, -4, 20, 8); ctxP.restore();
+                }
+            });
+
+            if(lvl.islands) lvl.islands.forEach(isl => { ctxP.fillStyle = isl.color; ctxP.beginPath(); ctxP.roundRect(isl.x, isl.y, isl.w, isl.h, 15); ctxP.fill(); });
+            lvl.spots.forEach(s => { ctxP.strokeStyle = s.target ? (Date.now()%1000<500?'#2ecc71':'#fff') : "rgba(255,255,255,0.5)"; ctxP.lineWidth = 4; ctxP.strokeRect(s.x, s.y, s.w, s.h); });
+            lvl.walls.forEach(w => { ctxP.fillStyle = '#2980b9'; ctxP.fillRect(w.x, w.y, w.w, w.h); });
+            
+            // Décorations
+            if(lvl.decorations) lvl.decorations.forEach(d => {
+                if(d.type === 'tree') drawTree(ctxP, d.x, d.y);
+                if(d.type === 'sign') drawSign(ctxP, d.x, d.y, d.val);
+            });
+
+            ctxP.save(); ctxP.translate(parkingState.x, parkingState.y); ctxP.rotate(parkingState.angle); drawImprovedCar(ctxP, 0, 0, userConfig.color, userConfig.type, parkingState.braking, parkingState.w, parkingState.h); ctxP.restore();
+            ctxP.restore(); gameLoop = requestAnimationFrame(loopParking);
+        }
+
+        function showParkingMessage(text, btnText) {
+            document.getElementById('parking-status-text').innerText = text;
+            const btn = document.getElementById('parking-next-btn'); btn.innerText = btnText;
+            btn.onclick = (btnText === "Recommencer") ? () => loadLevel() : () => nextParkingLevel();
+            document.getElementById('parking-msg').classList.remove('hidden');
+            document.getElementById('parking-msg').style.display = 'flex';
+        }
+
+        hideAllScreens();
+    </script>
+</body>
+</html>
